@@ -1,0 +1,5 @@
+PyQt5
+python-binance
+openai
+pyqtgraph
+pandas
