@@ -2,8 +2,11 @@ import sys
 import pandas as pd
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QLineEdit, QPushButton, QTextEdit, QComboBox, QSpinBox, QCheckBox,
-                             QTableWidget, QTableWidgetItem, QCompleter, QHeaderView, QDialog, QFormLayout)
-from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, QObject
+                             QTableWidget, QTableWidgetItem, QCompleter, QHeaderView, QDialog, QFormLayout,
+                             QGroupBox)
+from PyQt5.QtCore import QTimer, Qt, QThread, pyqtSignal, QObject, QSize
+from PyQt5.QtGui import QColor, QPalette, QFont, QPixmap, QIcon, QPainter
+from PyQt5.QtSvg import QSvgRenderer
 import pyqtgraph as pg
 from binance_client import BinanceDataClient
 from ai_client import CryptoAIAdvisor
@@ -74,9 +77,9 @@ class CandlestickItem(pg.GraphicsObject):
         w = 0.6
         for t, open_val, close_val, low_val, high_val in self.data:
             if open_val > close_val:
-                p.setBrush(pg.mkBrush('#f6465d')) # 跌：红色
+                p.setBrush(pg.mkBrush('#F6465D')) # 跌：红色
             else:
-                p.setBrush(pg.mkBrush('#2ebd85')) # 涨：绿色
+                p.setBrush(pg.mkBrush('#0ECB81')) # 涨：绿色
             
             p.drawLine(pg.QtCore.QPointF(t, low_val), pg.QtCore.QPointF(t, high_val))
             p.drawRect(pg.QtCore.QRectF(t - w/2, open_val, w, close_val - open_val))
@@ -169,6 +172,7 @@ class MainWindow(QMainWindow):
         self.candlestick_item = None
         self.ma_line_item = None
         
+        self.apply_dark_gold_theme()
         self.init_ui()
         self.load_symbols()
         
@@ -177,7 +181,113 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.refresh_data)
         self.timer.start(2000) # 增加到 2 秒，减少 API 压力
 
+    def apply_dark_gold_theme(self):
+        """应用黑金配色方案"""
+        qss = """
+        QMainWindow, QWidget {
+            background-color: #121212;
+            color: #EAECEF;
+            font-family: "Segoe UI", "Microsoft YaHei";
+        }
+        QGroupBox {
+            border: 1px solid #333333;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-weight: bold;
+            color: #F0B90B;
+            padding: 10px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 5px;
+        }
+        QPushButton {
+            background-color: #2B2F36;
+            border: 1px solid #474D57;
+            border-radius: 4px;
+            padding: 8px 16px;
+            color: #EAECEF;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #33383F;
+            border-color: #F0B90B;
+        }
+        QPushButton#long_btn {
+            background-color: #0ECB81;
+            color: #FFFFFF;
+            border: none;
+        }
+        QPushButton#long_btn:hover {
+            background-color: #0BB372;
+        }
+        QPushButton#short_btn {
+            background-color: #F6465D;
+            color: #FFFFFF;
+            border: none;
+        }
+        QPushButton#short_btn:hover {
+            background-color: #D93E52;
+        }
+        QPushButton#ai_toggle_btn {
+            background-color: #F0B90B;
+            color: #000000;
+            border: none;
+        }
+        QPushButton#ai_toggle_btn:checked {
+            background-color: #CF9F0A;
+            border: 1px solid #FFFFFF;
+        }
+        QLineEdit, QComboBox, QDoubleSpinBox, QSpinBox {
+            background-color: #1E2329;
+            border: 1px solid #474D57;
+            border-radius: 4px;
+            padding: 5px;
+            color: #EAECEF;
+        }
+        QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QSpinBox:focus {
+            border-color: #F0B90B;
+        }
+        QTableWidget {
+            background-color: #121212;
+            border: 1px solid #333333;
+            gridline-color: #2B2F36;
+            selection-background-color: #2B2F36;
+            color: #EAECEF;
+        }
+        QHeaderView::section {
+            background-color: #1E2329;
+            color: #848E9C;
+            padding: 5px;
+            border: none;
+            font-weight: bold;
+        }
+        QScrollBar:vertical {
+            background: #121212;
+            width: 10px;
+        }
+        QScrollBar::handle:vertical {
+            background: #2B2F36;
+            min-height: 20px;
+            border-radius: 5px;
+        }
+        QLabel#logo_label {
+            margin-bottom: 10px;
+        }
+        QLabel#price_display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0ECB81;
+            background-color: #1E2329;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        """
+        self.setStyleSheet(qss)
+
     def init_ui(self):
+        self.setWindowTitle("Binance AI 交易助手 - 黑金专业版")
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
@@ -185,44 +295,71 @@ class MainWindow(QMainWindow):
         # 左侧：K线图和交易
         left_panel = QVBoxLayout()
         
+        # 顶部 Logo 和 标题
+        header_layout = QHBoxLayout()
+        self.logo_label = QLabel()
+        self.logo_label.setObjectName("logo_label")
+        self.logo_label.setFixedSize(180, 45)
+        
+        # 渲染币安 SVG Logo (包含文字)
+        svg_data = """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 30" fill="#F0B90B">
+            <path d="M15 0L11.6 3.4L15 6.8L18.4 3.4L15 0ZM9.2 5.8L5.8 9.2L9.2 12.6L12.6 9.2L9.2 5.8ZM20.8 5.8L17.4 9.2L20.8 12.6L24.2 9.2L20.8 5.8ZM15 11.6L11.6 15L15 18.4L18.4 15L15 11.6ZM9.2 17.4L5.8 20.8L9.2 24.2L12.6 20.8L9.2 17.4ZM20.8 17.4L17.4 20.8L20.8 24.2L24.2 20.8L20.8 17.4ZM15 23.2L11.6 26.6L15 30L18.4 26.6L15 23.2Z"/>
+            <text x="35" y="22" font-family="Arial" font-weight="bold" font-size="18" fill="#F0B90B">BINANCE</text>
+        </svg>
+        """
+        renderer = QSvgRenderer(svg_data.encode('utf-8'))
+        pixmap = QPixmap(180, 45)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter)
+        painter.end()
+        self.logo_label.setPixmap(pixmap)
+        
+        header_layout.addWidget(self.logo_label)
+        header_layout.addStretch()
+        
         # 搜索和选择
         search_layout = QHBoxLayout()
         self.symbol_input = QLineEdit()
         self.symbol_input.setPlaceholderText("搜索合约 (如 BTCUSDT)...")
+        self.symbol_input.setFixedWidth(200)
         self.symbol_input.returnPressed.connect(self.on_search_symbol)
         
         self.search_btn = QPushButton("切换")
         self.search_btn.clicked.connect(self.on_search_symbol)
         
-        self.settings_btn = QPushButton("⚙ 系统设置")
+        self.settings_btn = QPushButton("⚙ 设置")
         self.settings_btn.clicked.connect(self.open_settings)
         
         self.reset_view_btn = QPushButton("重置视图")
         self.reset_view_btn.clicked.connect(self.reset_chart_view)
         
-        search_layout.addWidget(QLabel("合约搜索:"))
         search_layout.addWidget(self.symbol_input)
         search_layout.addWidget(self.search_btn)
         search_layout.addWidget(self.settings_btn)
         search_layout.addWidget(self.reset_view_btn)
-        left_panel.addLayout(search_layout)
+        header_layout.addLayout(search_layout)
+        
+        left_panel.addLayout(header_layout)
 
         # K线图
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setBackground('w')
-        self.plot_widget.showGrid(x=True, y=True)
-        self.plot_widget.setFocusPolicy(Qt.NoFocus) # 防止抢占焦点
+        self.plot_widget.setBackground('#121212')
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
+        self.plot_widget.setFocusPolicy(Qt.NoFocus)
         left_panel.addWidget(self.plot_widget)
 
         # 实时价格大字显示
         self.price_display = QLabel("加载中...")
-        self.price_display.setStyleSheet("font-size: 28px; font-weight: bold; color: #2ebd85; margin: 5px;")
+        self.price_display.setObjectName("price_display")
         self.price_display.setAlignment(Qt.AlignCenter)
         self.price_display.setFocusPolicy(Qt.NoFocus)
         left_panel.addWidget(self.price_display)
         
         # 交易控制面板
-        trade_panel = QVBoxLayout()
+        trade_group = QGroupBox("交易控制")
+        trade_panel = QVBoxLayout(trade_group)
         
         # 交易模式切换
         mode_layout = QHBoxLayout()
@@ -231,20 +368,23 @@ class MainWindow(QMainWindow):
         self.trade_mode_combo.currentIndexChanged.connect(self.on_trade_mode_changed)
         mode_layout.addWidget(QLabel("交易模式:"))
         mode_layout.addWidget(self.trade_mode_combo)
+        mode_layout.addStretch()
         trade_panel.addLayout(mode_layout)
 
         # 第一行：金额和方向
         row1 = QHBoxLayout()
         self.amount_input = QLineEdit()
         self.amount_input.setPlaceholderText("总价值 (USDT)")
-        self.amount_input.setText(str(config.DEFAULT_TRADE_AMOUNT)) # 设置默认初始值
+        self.amount_input.setText(str(config.DEFAULT_TRADE_AMOUNT))
         
         self.long_btn = QPushButton("看涨 (做多)")
-        self.long_btn.setStyleSheet("background-color: #2ebd85; color: white; font-weight: bold; padding: 10px;")
+        self.long_btn.setObjectName("long_btn")
+        self.long_btn.setFixedHeight(40)
         self.long_btn.clicked.connect(lambda: self.handle_trade('LONG'))
         
         self.short_btn = QPushButton("看跌 (做空)")
-        self.short_btn.setStyleSheet("background-color: #f6465d; color: white; font-weight: bold; padding: 10px;")
+        self.short_btn.setObjectName("short_btn")
+        self.short_btn.setFixedHeight(40)
         self.short_btn.clicked.connect(lambda: self.handle_trade('SHORT'))
         
         row1.addWidget(QLabel("下单总价值:"))
@@ -279,26 +419,27 @@ class MainWindow(QMainWindow):
         row_leverage.addWidget(self.leverage_input)
         row_leverage.addWidget(QLabel("保证金模式:"))
         row_leverage.addWidget(self.margin_mode_input)
+        row_leverage.addStretch()
         trade_panel.addLayout(row_leverage)
         
         # 第三行：AI 自动交易控制
         row3 = QHBoxLayout()
         self.ai_toggle_btn = QPushButton("开启 AI 自动跟单交易")
-        self.ai_toggle_btn.setStyleSheet("background-color: #f39c12; color: white; font-weight: bold; padding: 10px;")
+        self.ai_toggle_btn.setObjectName("ai_toggle_btn")
+        self.ai_toggle_btn.setFixedHeight(40)
         self.ai_toggle_btn.setCheckable(True)
         self.ai_toggle_btn.toggled.connect(self.toggle_ai_trade)
         
         self.ai_strategy_combo = QComboBox()
         self.ai_strategy_combo.addItems(["保守型 (CONS)", "激进型 (AGGR)"])
-        self.ai_strategy_combo.setToolTip("选择 AI 自动交易或跟单时使用的止盈止损策略")
         
         self.ai_fill_checkbox = QCheckBox("AI 自动填入止盈止损")
-        self.ai_fill_checkbox.setChecked(True) # 默认开启
-        self.ai_fill_checkbox.setStyleSheet("font-weight: bold; color: #8e44ad;")
+        self.ai_fill_checkbox.setChecked(True)
+        self.ai_fill_checkbox.setStyleSheet("color: #F0B90B; font-weight: bold;")
         
         self.ai_status_label = QLabel("AI 状态: 休息中")
         self.ai_profit_label = QLabel("账户总盈亏: 0.00 USDT")
-        self.ai_profit_label.setStyleSheet("font-weight: bold; color: #2980b9;")
+        self.ai_profit_label.setStyleSheet("font-weight: bold; color: #F0B90B;")
         
         row3.addWidget(self.ai_toggle_btn)
         row3.addWidget(QLabel("AI策略:"))
@@ -312,52 +453,59 @@ class MainWindow(QMainWindow):
         row4 = QHBoxLayout()
         self.follow_btn = QPushButton("一键跟单 (AI信号)")
         self.follow_btn.setEnabled(False)
-        self.follow_btn.setStyleSheet("background-color: #8e44ad; color: white; font-weight: bold; padding: 8px;")
+        self.follow_btn.setFixedHeight(35)
         self.follow_btn.clicked.connect(self.handle_follow_ai)
         
         self.reverse_btn = QPushButton("一键反买 (对冲AI)")
         self.reverse_btn.setEnabled(False)
-        self.reverse_btn.setStyleSheet("background-color: #d35400; color: white; font-weight: bold; padding: 8px;")
+        self.reverse_btn.setFixedHeight(35)
         self.reverse_btn.clicked.connect(self.handle_reverse_ai)
         
         row4.addWidget(self.follow_btn)
         row4.addWidget(self.reverse_btn)
         trade_panel.addLayout(row4)
         
-        left_panel.addLayout(trade_panel)
+        left_panel.addWidget(trade_group)
 
         # 账户与持仓
+        info_group = QGroupBox("账户与持仓")
+        info_vbox = QVBoxLayout(info_group)
+        
         info_layout = QHBoxLayout()
         self.balance_label = QLabel(f"可用余额: {self.trading.balance:.2f} USDT")
-        self.balance_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #333;")
+        self.balance_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #EAECEF;")
         self.equity_label = QLabel(f"账户权益: {self.trading.balance:.2f} USDT")
-        self.equity_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2980b9;")
+        self.equity_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #F0B90B;")
         
         info_layout.addWidget(self.balance_label)
         info_layout.addWidget(self.equity_label)
-        left_panel.addLayout(info_layout)
+        info_layout.addStretch()
+        info_vbox.addLayout(info_layout)
 
         self.position_table = QTableWidget(0, 7)
         self.position_table.setHorizontalHeaderLabels(["ID", "币种", "方向", "数量", "入场价", "止盈/止损", "操作"])
         self.position_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.position_table.setFocusPolicy(Qt.NoFocus) # 防止抢占焦点
-        left_panel.addWidget(QLabel("当前持仓 (双向持仓支持):"))
-        left_panel.addWidget(self.position_table)
+        self.position_table.setFocusPolicy(Qt.NoFocus)
+        info_vbox.addWidget(self.position_table)
+        
+        left_panel.addWidget(info_group)
 
         # 右侧：AI 助手与决策日志
         right_panel = QVBoxLayout()
         
         # 上半部分：AI 对话
-        right_panel.addWidget(QLabel("AI 加密货币指导师 (对话)"))
+        ai_chat_group = QGroupBox("AI 加密货币指导师 (对话)")
+        ai_chat_vbox = QVBoxLayout(ai_chat_group)
+        
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
-        self.chat_display.setFocusPolicy(Qt.NoFocus) # 防止抢占焦点
-        self.chat_display.setStyleSheet("background-color: #f9f9f9; border: 1px solid #ddd; font-family: 'Microsoft YaHei';")
-        right_panel.addWidget(self.chat_display, 2) # 权重为 2
+        self.chat_display.setFocusPolicy(Qt.NoFocus)
+        self.chat_display.setStyleSheet("background-color: #1E2329; border: 1px solid #333333; color: #EAECEF;")
+        ai_chat_vbox.addWidget(self.chat_display)
         
         self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("向AI提问...")
-        self.chat_input.setAttribute(Qt.WA_InputMethodEnabled) # 显式启用输入法
+        self.chat_input.setPlaceholderText("向 AI 提问...")
+        self.chat_input.setAttribute(Qt.WA_InputMethodEnabled)
         self.chat_input.returnPressed.connect(self.handle_ai_chat)
         self.send_btn = QPushButton("发送")
         self.send_btn.clicked.connect(self.handle_ai_chat)
@@ -365,19 +513,22 @@ class MainWindow(QMainWindow):
         chat_input_layout = QHBoxLayout()
         chat_input_layout.addWidget(self.chat_input)
         chat_input_layout.addWidget(self.send_btn)
-        right_panel.addLayout(chat_input_layout)
+        ai_chat_vbox.addLayout(chat_input_layout)
+        right_panel.addWidget(ai_chat_group, 2)
 
         # 下半部分：AI 决策与交易日志
-        right_panel.addWidget(QLabel("AI 决策与交易日志"))
+        log_group = QGroupBox("AI 决策与交易日志")
+        log_vbox = QVBoxLayout(log_group)
         self.log_display = QTextEdit()
         self.log_display.setReadOnly(True)
-        self.log_display.setFocusPolicy(Qt.NoFocus) # 防止抢占焦点
-        self.log_display.setStyleSheet("background-color: #2c3e50; color: #ecf0f1; border: 1px solid #34495e; font-family: 'Consolas'; font-size: 12px;")
-        right_panel.addWidget(self.log_display, 1) # 权重为 1
+        self.log_display.setFocusPolicy(Qt.NoFocus)
+        self.log_display.setStyleSheet("background-color: #1E2329; color: #848E9C; border: 1px solid #333333; font-family: 'Consolas'; font-size: 11px;")
+        log_vbox.addWidget(self.log_display)
+        right_panel.addWidget(log_group, 1)
 
         # 底部免责声明
-        disclaimer = QLabel("本产品仅供学习，加密市场风险高，切勿用于真实交易")
-        disclaimer.setStyleSheet("color: #95a5a6; font-size: 10px; margin-top: 5px;")
+        disclaimer = QLabel("风险提示：加密货币交易具有极高风险，本工具仅供参考，不构成投资建议。")
+        disclaimer.setStyleSheet("color: #5E6673; font-size: 10px; margin-top: 5px;")
         disclaimer.setAlignment(Qt.AlignRight)
         right_panel.addWidget(disclaimer)
 
